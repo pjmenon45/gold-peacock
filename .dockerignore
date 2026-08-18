@@ -1,0 +1,14 @@
+node_modules
+.next
+.node
+.git
+.gitignore
+.env
+.env.local
+.env*.local
+*.md
+*.log
+Dockerfile*
+docker-compose*
+.DS_Store
+.antigravity

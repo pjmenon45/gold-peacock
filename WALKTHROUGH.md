@@ -73,5 +73,7 @@ npm run build
 
 ## 5. Deployment Readiness
 
-- Multi-stage [`Dockerfile`](Dockerfile) and [`docker-compose.yml`](docker-compose.yml) created for one-command deployment to DigitalOcean droplets.
+- Multi-stage [`Dockerfile`](Dockerfile) optimized with Next.js `standalone` mode, low-memory builder settings (`--max-old-space-size=1024`), and a minimal `<100MB` runner footprint.
+- Configured [`.dockerignore`](.dockerignore) to prevent copying host `node_modules`, `.next`, or local binaries into Docker build context.
+- Production [`docker-compose.yml`](docker-compose.yml) ready for one-command deployment to DigitalOcean droplets.
 - Full setup instructions and curl agent API examples documented in [`README.md`](README.md).
