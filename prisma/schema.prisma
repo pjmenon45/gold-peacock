@@ -1,0 +1,51 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum ContentType {
+  video
+  blog
+  pwtw
+  future
+}
+
+enum ContentStatus {
+  draft
+  published
+}
+
+model Content {
+  id            String        @id @default(uuid())
+  type          ContentType
+  title         String
+  slug          String        @unique
+  body          String        @db.Text
+  media_url     String?       @map("media_url")
+  thumbnail_url String?       @map("thumbnail_url")
+  tags          String[]      @default([])
+  status        ContentStatus @default(draft)
+  published_at  DateTime?     @map("published_at")
+  metadata      Json?         @default("{}")
+  created_at    DateTime      @default(now()) @map("created_at")
+  updated_at    DateTime      @updatedAt @map("updated_at")
+
+  @@index([type, status, published_at(sort: Desc)])
+  @@index([slug])
+  @@map("content")
+}
+
+model ContactSubmission {
+  id         String   @id @default(uuid())
+  name       String
+  email      String
+  subject    String?
+  message    String   @db.Text
+  created_at DateTime @default(now()) @map("created_at")
+
+  @@map("contact_submission")
+}

@@ -1,0 +1,66 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: #FFFFFF;
+    --background-soft: #FAF9F5;
+    --foreground: #141413;
+    --secondary: #6B6B6B;
+    --border: #E5E5E5;
+    --card-bg: #FFFFFF;
+    --card-fg: #141413;
+    --card-border: #E5E5E5;
+    --accent-muted: #F8ECE8;
+    color-scheme: light;
+  }
+
+  .dark {
+    --background: #0F0F0E;
+    --background-soft: #181816;
+    --foreground: #FAF9F5;
+    --secondary: #9E9E9E;
+    --border: #262624;
+    --card-bg: #151513;
+    --card-fg: #FAF9F5;
+    --card-border: #262624;
+    --accent-muted: #2E1B15;
+    color-scheme: dark;
+  }
+
+  * {
+    border-color: var(--border);
+  }
+
+  html {
+    scroll-behavior: smooth;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    background-color: var(--background);
+    color: var(--foreground);
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  }
+
+  ::selection {
+    background-color: #D97757;
+    color: #FFFFFF;
+  }
+}
+
+@layer utilities {
+  /* Subtle glass & blur effect */
+  .glass-nav {
+    background-color: rgba(255, 255, 255, 0.85);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+  }
+  .dark .glass-nav {
+    background-color: rgba(15, 15, 14, 0.85);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+  }
+}
