@@ -92,7 +92,7 @@ export async function syncContentFromDrive(): Promise<SyncResult> {
         const mimeType = file.mimeType || '';
 
         // 1. Classifier Step
-        let type = 'unknown';
+        let type: 'video' | 'blog' | 'pwtw' | 'future' = 'pwtw';
         if (folderName.includes('Videos') || mimeType.includes('video')) {
           type = 'video';
         } else if (
@@ -110,28 +110,81 @@ export async function syncContentFromDrive(): Promise<SyncResult> {
         const slug = slugify(filename);
         const title = cleanTitle(filename);
 
-        // 2. Specialist Processing
-        const mediaUrl = `/api/drive-image/${file.id}`;
-        const thumbnailUrl = `/api/drive-image/${file.id}`;
+        // Fetch existing entry if present
+        const existing = await prisma.content.findUnique({ where: { slug } });
+        const finalStatus = existing ? existing.status : 'draft';
 
+        // 2. Specialist Processing
+        let mediaUrl = `/api/drive-image/${file.id}`;
+        let thumbnailUrl = `/api/drive-image/${file.id}`;
         let body = `### ${title}\n\nContent synced from Google Drive (${folderName}).`;
-        let tags: string[] = [];
+        let tags: string[] = ['Draft'];
+        let extraMetadata: Record<string, any> = {};
 
         if (type === 'pwtw') {
           body = `### ${title}\n\nVisual story from ${folderName}. Stored as draft for review.\n\n> "Every image tells a thousand words."`;
           tags = ['AI', 'Enterprise', 'Visual Essay', 'Infographic'];
+          extraMetadata.alt_text = title;
         } else if (type === 'blog') {
           body = `### ${title}\n\nDraft article content synced from Google Drive file: \`${filename}\`.\n\n*Review and edit before publishing.*`;
           tags = ['Blog', 'Draft'];
         } else if (type === 'video') {
-          body = `### ${title}\n\nVideo notes and overview. Awaiting YouTube link attachment.`;
-          tags = ['Video', 'Draft'];
+          const existingMeta =
+            existing?.metadata && typeof existing.metadata === 'object'
+              ? (existing.metadata as Record<string, any>)
+              : {};
+          let youtubeId = existingMeta.youtubeId;
+
+          // If not yet uploaded to YouTube, stream and upload via YouTube Data API
+          if (!youtubeId && (mimeType.includes('video') || filename.match(/\.(mp4|mov|avi|mkv|webm)$/i))) {
+            try {
+              console.log(`[Video-Agent] Streaming "${filename}" from Google Drive to YouTube...`);
+              const youtube = google.youtube({ version: 'v3', auth: oauth2Client });
+              const fileStream = await drive.files.get(
+                { fileId: file.id, alt: 'media' },
+                { responseType: 'stream' }
+              );
+
+              const uploadRes = await youtube.videos.insert({
+                part: ['snippet', 'status'],
+                requestBody: {
+                  snippet: {
+                    title: title,
+                    description: `Video walkthrough for ${title}.\n\nProcessed automatically via Personal Content Website.`,
+                    tags: ['Software Engineering', 'AI', 'Tutorial'],
+                  },
+                  status: {
+                    privacyStatus: 'unlisted', // unlisted for safety during draft stage
+                  },
+                },
+                media: {
+                  body: fileStream.data,
+                },
+              });
+
+              youtubeId = uploadRes.data.id;
+              console.log(`[Video-Agent] ✓ Uploaded to YouTube with ID: ${youtubeId}`);
+            } catch (ytErr: any) {
+              console.warn(`[Video-Agent] YouTube upload notice: ${ytErr.message}`);
+            }
+          }
+
+          if (youtubeId) {
+            mediaUrl = `https://www.youtube.com/watch?v=${youtubeId}`;
+            thumbnailUrl = `https://i.ytimg.com/vi/${youtubeId}/maxresdefault.jpg`;
+            extraMetadata.youtubeId = youtubeId;
+          } else {
+            mediaUrl = existing?.media_url || `/api/drive-image/${file.id}`;
+            thumbnailUrl = existing?.thumbnail_url || `/api/drive-image/${file.id}`;
+          }
+
+          body =
+            existing?.body ||
+            `### ${title}\n\nVideo presentation and show notes.\n\n#### Overview\nThis video walkthrough covers key architectural concepts and engineering practices.`;
+          tags = existing?.tags && existing.tags.length > 0 ? existing.tags : ['Video', 'Architecture', 'AI'];
         }
 
-        // 3. Publisher: Upsert to database preserving 'published' status if already published by user
-        const existing = await prisma.content.findUnique({ where: { slug } });
-        const finalStatus = existing ? existing.status : 'draft';
-
+        // 3. Publisher: Upsert to database
         const saved = await prisma.content.upsert({
           where: { slug },
           update: {
@@ -143,6 +196,7 @@ export async function syncContentFromDrive(): Promise<SyncResult> {
             tags: existing?.tags && existing.tags.length > 0 ? existing.tags : tags,
             metadata: {
               ...(typeof existing?.metadata === 'object' && existing?.metadata !== null ? existing.metadata : {}),
+              ...extraMetadata,
               driveFileId: file.id,
               originalFilename: filename,
               folderName,
@@ -159,6 +213,7 @@ export async function syncContentFromDrive(): Promise<SyncResult> {
             tags,
             status: finalStatus,
             metadata: {
+              ...extraMetadata,
               driveFileId: file.id,
               originalFilename: filename,
               folderName,
