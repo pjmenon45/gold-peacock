@@ -8,7 +8,8 @@ export const metadata: Metadata = {
   description: 'Visual photography essays and contemplative stories from around the world.',
 };
 
-export const revalidate = 60;
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 export default async function PwtwPage() {
   const photos = await getContentItems({ type: 'pwtw', status: 'published' });

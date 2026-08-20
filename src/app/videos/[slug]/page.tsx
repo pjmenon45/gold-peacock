@@ -30,12 +30,8 @@ export async function generateMetadata({ params }: VideoDetailPageProps): Promis
   };
 }
 
-export async function generateStaticParams() {
-  const items = await getContentItems({ type: 'video', status: 'published' });
-  return items.map((item) => ({ slug: item.slug }));
-}
-
-export const revalidate = 60;
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 export default async function VideoDetailPage({ params }: VideoDetailPageProps) {
   const item = await getContentBySlug(params.slug, 'video');

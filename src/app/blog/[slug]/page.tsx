@@ -30,12 +30,8 @@ export async function generateMetadata({ params }: BlogDetailPageProps): Promise
   };
 }
 
-export async function generateStaticParams() {
-  const items = await getContentItems({ type: 'blog', status: 'published' });
-  return items.map((item) => ({ slug: item.slug }));
-}
-
-export const revalidate = 60;
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 export default async function BlogDetailPage({ params }: BlogDetailPageProps) {
   const item = await getContentBySlug(params.slug, 'blog');

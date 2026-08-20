@@ -8,7 +8,8 @@ export const metadata: Metadata = {
   description: 'Technical breakdowns, system architecture deep dives, and video essays.',
 };
 
-export const revalidate = 60;
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 export default async function VideosPage() {
   const videos = await getContentItems({ type: 'video', status: 'published' });

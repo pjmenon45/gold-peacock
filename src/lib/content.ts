@@ -9,35 +9,9 @@ import {
   ContactSubmission,
 } from '@/types';
 
-// In-memory memory store as fallback when PostgreSQL is not yet connected/migrated
+// In-memory memory store as fallback when PostgreSQL is not yet connected
 let inMemoryContent: ContentItem[] = [...INITIAL_CONTENT];
 let inMemorySubmissions: ContactSubmission[] = [];
-
-let lastDbCheckTime = 0;
-let lastDbAvailableStatus = false;
-const DB_CHECK_COOLDOWN_MS = 10000; // Check at most once every 10s if failing
-
-/**
- * Check if the Prisma database connection is live and the table exists.
- */
-async function isDatabaseAvailable(): Promise<boolean> {
-  if (!process.env.DATABASE_URL) return false;
-  
-  const now = Date.now();
-  if (now - lastDbCheckTime < DB_CHECK_COOLDOWN_MS) {
-    return lastDbAvailableStatus;
-  }
-
-  try {
-    lastDbCheckTime = now;
-    await prisma.content.count();
-    lastDbAvailableStatus = true;
-    return true;
-  } catch (error) {
-    lastDbAvailableStatus = false;
-    return false;
-  }
-}
 
 /**
  * Fetch published or all content items with filtering, sorting, and pagination
@@ -45,9 +19,7 @@ async function isDatabaseAvailable(): Promise<boolean> {
 export async function getContentItems(options: ContentFilterOptions = {}): Promise<ContentItem[]> {
   const { type, status = 'published', tag, limit, featuredOnly } = options;
 
-  const dbAvailable = await isDatabaseAvailable();
-
-  if (dbAvailable) {
+  if (process.env.DATABASE_URL) {
     try {
       const where: any = {};
 
@@ -77,7 +49,7 @@ export async function getContentItems(options: ContentFilterOptions = {}): Promi
         thumbnail_url: item.thumbnail_url,
         tags: item.tags,
         status: item.status as any,
-        published_at: item.published_at,
+        published_at: item.published_at || (item.status === 'published' ? item.created_at : null),
         metadata: (item.metadata as Record<string, any>) || {},
         created_at: item.created_at,
         updated_at: item.updated_at,
@@ -88,8 +60,8 @@ export async function getContentItems(options: ContentFilterOptions = {}): Promi
       }
 
       return mapped;
-    } catch (err) {
-      console.warn('Prisma query failed, falling back to local store:', err);
+    } catch (err: any) {
+      console.warn('Prisma query failed, falling back to local store:', err.message);
     }
   }
 
@@ -132,9 +104,7 @@ export async function getContentBySlug(
   slug: string,
   type?: ContentType
 ): Promise<ContentItem | null> {
-  const dbAvailable = await isDatabaseAvailable();
-
-  if (dbAvailable) {
+  if (process.env.DATABASE_URL) {
     try {
       const item = await prisma.content.findUnique({
         where: { slug },
@@ -151,14 +121,14 @@ export async function getContentBySlug(
           thumbnail_url: item.thumbnail_url,
           tags: item.tags,
           status: item.status as any,
-          published_at: item.published_at,
+          published_at: item.published_at || (item.status === 'published' ? item.created_at : null),
           metadata: (item.metadata as Record<string, any>) || {},
           created_at: item.created_at,
           updated_at: item.updated_at,
         };
       }
-    } catch (err) {
-      console.warn('Prisma query by slug failed, falling back:', err);
+    } catch (err: any) {
+      console.warn('Prisma query by slug failed, falling back:', err.message);
     }
   }
 
@@ -172,9 +142,7 @@ export async function getContentBySlug(
  * Fetch a single content item by ID (used by admin routes)
  */
 export async function getContentById(id: string): Promise<ContentItem | null> {
-  const dbAvailable = await isDatabaseAvailable();
-
-  if (dbAvailable) {
+  if (process.env.DATABASE_URL) {
     try {
       const item = await prisma.content.findUnique({ where: { id } });
       if (item) {
@@ -188,14 +156,14 @@ export async function getContentById(id: string): Promise<ContentItem | null> {
           thumbnail_url: item.thumbnail_url,
           tags: item.tags,
           status: item.status as any,
-          published_at: item.published_at,
+          published_at: item.published_at || (item.status === 'published' ? item.created_at : null),
           metadata: (item.metadata as Record<string, any>) || {},
           created_at: item.created_at,
           updated_at: item.updated_at,
         };
       }
-    } catch (err) {
-      console.warn('Prisma query by id failed, falling back:', err);
+    } catch (err: any) {
+      console.warn('Prisma query by id failed, falling back:', err.message);
     }
   }
 
@@ -206,43 +174,45 @@ export async function getContentById(id: string): Promise<ContentItem | null> {
  * Create a new content item (used by Admin API)
  */
 export async function createContent(input: CreateContentInput): Promise<ContentItem> {
-  const dbAvailable = await isDatabaseAvailable();
-
   const publishedAt = input.status === 'published'
     ? (input.published_at ? new Date(input.published_at) : new Date())
     : (input.published_at ? new Date(input.published_at) : null);
 
-  if (dbAvailable) {
-    const created = await prisma.content.create({
-      data: {
-        type: input.type,
-        title: input.title,
-        slug: input.slug,
-        body: input.body,
-        media_url: input.media_url || null,
-        thumbnail_url: input.thumbnail_url || null,
-        tags: input.tags || [],
-        status: input.status || 'draft',
-        published_at: publishedAt,
-        metadata: input.metadata || {},
-      },
-    });
+  if (process.env.DATABASE_URL) {
+    try {
+      const created = await prisma.content.create({
+        data: {
+          type: input.type,
+          title: input.title,
+          slug: input.slug,
+          body: input.body,
+          media_url: input.media_url || null,
+          thumbnail_url: input.thumbnail_url || null,
+          tags: input.tags || [],
+          status: input.status || 'draft',
+          published_at: publishedAt,
+          metadata: input.metadata || {},
+        },
+      });
 
-    return {
-      id: created.id,
-      type: created.type as ContentType,
-      title: created.title,
-      slug: created.slug,
-      body: created.body,
-      media_url: created.media_url,
-      thumbnail_url: created.thumbnail_url,
-      tags: created.tags,
-      status: created.status as any,
-      published_at: created.published_at,
-      metadata: (created.metadata as Record<string, any>) || {},
-      created_at: created.created_at,
-      updated_at: created.updated_at,
-    };
+      return {
+        id: created.id,
+        type: created.type as ContentType,
+        title: created.title,
+        slug: created.slug,
+        body: created.body,
+        media_url: created.media_url,
+        thumbnail_url: created.thumbnail_url,
+        tags: created.tags,
+        status: created.status as any,
+        published_at: created.published_at,
+        metadata: (created.metadata as Record<string, any>) || {},
+        created_at: created.created_at,
+        updated_at: created.updated_at,
+      };
+    } catch (err: any) {
+      console.warn('Prisma create failed, falling back:', err.message);
+    }
   }
 
   const newItem: ContentItem = {
@@ -272,48 +242,50 @@ export async function updateContent(
   id: string,
   input: UpdateContentInput
 ): Promise<ContentItem | null> {
-  const dbAvailable = await isDatabaseAvailable();
-
-  if (dbAvailable) {
-    const data: any = {};
-    if (input.type !== undefined) data.type = input.type;
-    if (input.title !== undefined) data.title = input.title;
-    if (input.slug !== undefined) data.slug = input.slug;
-    if (input.body !== undefined) data.body = input.body;
-    if (input.media_url !== undefined) data.media_url = input.media_url;
-    if (input.thumbnail_url !== undefined) data.thumbnail_url = input.thumbnail_url;
-    if (input.tags !== undefined) data.tags = input.tags;
-    if (input.status !== undefined) {
-      data.status = input.status;
-      if (input.status === 'published' && !input.published_at) {
-        data.published_at = new Date();
+  if (process.env.DATABASE_URL) {
+    try {
+      const data: any = {};
+      if (input.type !== undefined) data.type = input.type;
+      if (input.title !== undefined) data.title = input.title;
+      if (input.slug !== undefined) data.slug = input.slug;
+      if (input.body !== undefined) data.body = input.body;
+      if (input.media_url !== undefined) data.media_url = input.media_url;
+      if (input.thumbnail_url !== undefined) data.thumbnail_url = input.thumbnail_url;
+      if (input.tags !== undefined) data.tags = input.tags;
+      if (input.status !== undefined) {
+        data.status = input.status;
+        if (input.status === 'published' && !input.published_at) {
+          data.published_at = new Date();
+        }
       }
-    }
-    if (input.published_at !== undefined) {
-      data.published_at = input.published_at ? new Date(input.published_at) : null;
-    }
-    if (input.metadata !== undefined) data.metadata = input.metadata;
+      if (input.published_at !== undefined) {
+        data.published_at = input.published_at ? new Date(input.published_at) : null;
+      }
+      if (input.metadata !== undefined) data.metadata = input.metadata;
 
-    const updated = await prisma.content.update({
-      where: { id },
-      data,
-    });
+      const updated = await prisma.content.update({
+        where: { id },
+        data,
+      });
 
-    return {
-      id: updated.id,
-      type: updated.type as ContentType,
-      title: updated.title,
-      slug: updated.slug,
-      body: updated.body,
-      media_url: updated.media_url,
-      thumbnail_url: updated.thumbnail_url,
-      tags: updated.tags,
-      status: updated.status as any,
-      published_at: updated.published_at,
-      metadata: (updated.metadata as Record<string, any>) || {},
-      created_at: updated.created_at,
-      updated_at: updated.updated_at,
-    };
+      return {
+        id: updated.id,
+        type: updated.type as ContentType,
+        title: updated.title,
+        slug: updated.slug,
+        body: updated.body,
+        media_url: updated.media_url,
+        thumbnail_url: updated.thumbnail_url,
+        tags: updated.tags,
+        status: updated.status as any,
+        published_at: updated.published_at,
+        metadata: (updated.metadata as Record<string, any>) || {},
+        created_at: updated.created_at,
+        updated_at: updated.updated_at,
+      };
+    } catch (err: any) {
+      console.warn('Prisma update failed, falling back:', err.message);
+    }
   }
 
   const index = inMemoryContent.findIndex((item) => item.id === id);
@@ -339,9 +311,7 @@ export async function updateContent(
  * Delete a content item
  */
 export async function deleteContent(id: string): Promise<boolean> {
-  const dbAvailable = await isDatabaseAvailable();
-
-  if (dbAvailable) {
+  if (process.env.DATABASE_URL) {
     try {
       await prisma.content.delete({ where: { id } });
       return true;
@@ -364,26 +334,28 @@ export async function createContactSubmission(data: {
   subject?: string | null;
   message: string;
 }): Promise<ContactSubmission> {
-  const dbAvailable = await isDatabaseAvailable();
+  if (process.env.DATABASE_URL) {
+    try {
+      const saved = await prisma.contactSubmission.create({
+        data: {
+          name: data.name,
+          email: data.email,
+          subject: data.subject || null,
+          message: data.message,
+        },
+      });
 
-  if (dbAvailable) {
-    const saved = await prisma.contactSubmission.create({
-      data: {
-        name: data.name,
-        email: data.email,
-        subject: data.subject || null,
-        message: data.message,
-      },
-    });
-
-    return {
-      id: saved.id,
-      name: saved.name,
-      email: saved.email,
-      subject: saved.subject,
-      message: saved.message,
-      created_at: saved.created_at,
-    };
+      return {
+        id: saved.id,
+        name: saved.name,
+        email: saved.email,
+        subject: saved.subject,
+        message: saved.message,
+        created_at: saved.created_at,
+      };
+    } catch (err: any) {
+      console.warn('Prisma contact submission failed, falling back:', err.message);
+    }
   }
 
   const newSub: ContactSubmission = {

@@ -8,7 +8,8 @@ export const metadata: Metadata = {
   description: 'Essays on autonomous AI systems, software craftsmanship, architecture, and design.',
 };
 
-export const revalidate = 60;
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 export default async function BlogPage() {
   const posts = await getContentItems({ type: 'blog', status: 'published' });

@@ -6,7 +6,8 @@ import { SectionHeader } from '@/components/content/SectionHeader';
 import { ContentCard } from '@/components/content/ContentCard';
 import { Button } from '@/components/ui/Button';
 
-export const revalidate = 60; // revalidate every minute
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 export default async function HomePage() {
   // Fetch published items

@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getContentItems } from '@/lib/content';
 import { ContentType } from '@/types';
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 /**
  * GET /api/content
  * Public read-only endpoint for published content

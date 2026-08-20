@@ -30,12 +30,8 @@ export async function generateMetadata({ params }: PwtwDetailPageProps): Promise
   };
 }
 
-export async function generateStaticParams() {
-  const items = await getContentItems({ type: 'pwtw', status: 'published' });
-  return items.map((item) => ({ slug: item.slug }));
-}
-
-export const revalidate = 60;
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 export default async function PwtwDetailPage({ params }: PwtwDetailPageProps) {
   const item = await getContentBySlug(params.slug, 'pwtw');
