@@ -1,4 +1,4 @@
-import { prisma } from './db';
+import { prisma, ensureDatabaseTables } from './db';
 import { INITIAL_CONTENT } from './seed-data';
 import {
   ContentFilterOptions,
@@ -21,6 +21,7 @@ export async function getContentItems(options: ContentFilterOptions = {}): Promi
 
   if (process.env.DATABASE_URL) {
     try {
+      await ensureDatabaseTables();
       const where: any = {};
 
       if (type) {

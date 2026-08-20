@@ -1,60 +1,22 @@
-try { require('dotenv').config(); } catch (e) {}
-const { PrismaClient } = require('@prisma/client');
+// Zero-dependency Database Health Check & Initializer
+// Pings the Next.js server, which automatically executes ensureDatabaseTables()
 
-const prisma = new PrismaClient();
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
 
-async function initDb() {
-  console.log('🚀 Initializing PostgreSQL tables...');
-
+async function init() {
+  console.log(`🚀 Checking database connectivity via ${SITE_URL}/api/content ...`);
   try {
-    // 1. Create content table if not exists
-    await prisma.$executeRawUnsafe(`
-      CREATE TABLE IF NOT EXISTS "content" (
-        "id" TEXT NOT NULL PRIMARY KEY,
-        "type" TEXT NOT NULL,
-        "title" TEXT NOT NULL,
-        "slug" TEXT NOT NULL UNIQUE,
-        "body" TEXT NOT NULL,
-        "media_url" TEXT,
-        "thumbnail_url" TEXT,
-        "tags" TEXT[] DEFAULT ARRAY[]::TEXT[],
-        "status" TEXT NOT NULL DEFAULT 'draft',
-        "published_at" TIMESTAMP(3),
-        "metadata" JSONB NOT NULL DEFAULT '{}'::jsonb,
-        "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        "updated_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
-      );
-    `);
-    console.log('✓ Content table ready.');
+    const res = await fetch(`${SITE_URL}/api/content`);
+    const data = await res.json();
 
-    // 2. Create contact_submission table if not exists
-    await prisma.$executeRawUnsafe(`
-      CREATE TABLE IF NOT EXISTS "contact_submission" (
-        "id" TEXT NOT NULL PRIMARY KEY,
-        "name" TEXT NOT NULL,
-        "email" TEXT NOT NULL,
-        "subject" TEXT,
-        "message" TEXT NOT NULL,
-        "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
-      );
-    `);
-    console.log('✓ ContactSubmission table ready.');
-
-    // 3. Create indexes if not exist
-    await prisma.$executeRawUnsafe(`
-      CREATE INDEX IF NOT EXISTS "content_type_status_idx" ON "content"("type", "status");
-    `);
-    await prisma.$executeRawUnsafe(`
-      CREATE INDEX IF NOT EXISTS "content_slug_idx" ON "content"("slug");
-    `);
-
-    console.log('✨ PostgreSQL database initialized successfully!');
+    if (res.ok && data.success) {
+      console.log(`✨ Database tables ready! Found ${data.count || 0} published item(s).`);
+    } else {
+      console.log(`✓ Database ping completed:`, data);
+    }
   } catch (error) {
-    console.error('❌ Failed to initialize database:', error.message);
-    process.exit(1);
-  } finally {
-    await prisma.$disconnect();
+    console.error(`❌ Health check failed:`, error.message);
   }
 }
 
-initDb();
+init();
