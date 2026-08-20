@@ -29,7 +29,7 @@ RUN npx prisma generate
 # Build Next.js in standalone mode with constrained heap to prevent OOM kills
 ENV NEXT_TELEMETRY_DISABLED 1
 ENV NODE_ENV production
-ENV NODE_OPTIONS "--max-old-space-size=1024"
+ENV NODE_OPTIONS "--max-old-space-size=1536"
 
 RUN npm run build
 
