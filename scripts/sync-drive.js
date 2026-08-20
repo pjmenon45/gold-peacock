@@ -80,8 +80,8 @@ async function processDriveFile(file, folderName) {
 
   if (type === 'pwtw') {
     // PWTW Specialist
-    const mediaUrl = `https://lh3.googleusercontent.com/d/${file.id}=w1600`;
-    const thumbnailUrl = `https://lh3.googleusercontent.com/d/${file.id}=w800`;
+    const mediaUrl = `/api/drive-image/${file.id}`;
+    const thumbnailUrl = `/api/drive-image/${file.id}`;
 
     contentPayload.body = `### ${title}\n\nVisual story from ${folderName}. Stored as draft for review.\n\n> "Every image tells a thousand words."`;
     contentPayload.media_url = mediaUrl;
