@@ -65,18 +65,23 @@ export async function ensureDatabaseTables(): Promise<void> {
         // 4. Ensure column types match enums if table was created previously with text
         await prisma.$executeRawUnsafe(`
           DO $$ BEGIN
+            ALTER TABLE "content" ALTER COLUMN "type" DROP DEFAULT;
+          EXCEPTION WHEN others THEN null; END $$;
+          DO $$ BEGIN
             ALTER TABLE "content" ALTER COLUMN "type" TYPE "ContentType" USING "type"::"ContentType";
-          EXCEPTION
-            WHEN others THEN null;
-          END $$;
+          EXCEPTION WHEN others THEN null; END $$;
         `);
 
         await prisma.$executeRawUnsafe(`
           DO $$ BEGIN
+            ALTER TABLE "content" ALTER COLUMN "status" DROP DEFAULT;
+          EXCEPTION WHEN others THEN null; END $$;
+          DO $$ BEGIN
             ALTER TABLE "content" ALTER COLUMN "status" TYPE "ContentStatus" USING "status"::"ContentStatus";
-          EXCEPTION
-            WHEN others THEN null;
-          END $$;
+          EXCEPTION WHEN others THEN null; END $$;
+          DO $$ BEGIN
+            ALTER TABLE "content" ALTER COLUMN "status" SET DEFAULT 'draft'::"ContentStatus";
+          EXCEPTION WHEN others THEN null; END $$;
         `);
 
         // 5. Create ContactSubmission table
