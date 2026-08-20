@@ -111,8 +111,10 @@ export async function syncContentFromDrive(): Promise<SyncResult> {
         const title = cleanTitle(filename);
 
         // Fetch existing entry if present
+        const autoPublish = process.env.AUTO_PUBLISH === 'true';
         const existing = await prisma.content.findUnique({ where: { slug } });
-        const finalStatus = existing ? existing.status : 'draft';
+        const finalStatus = existing ? existing.status : (autoPublish ? 'published' : 'draft');
+        const publishedAt = existing?.published_at || (finalStatus === 'published' ? new Date() : null);
 
         // 2. Specialist Processing
         let mediaUrl = `/api/drive-image/${file.id}`;
@@ -212,6 +214,7 @@ export async function syncContentFromDrive(): Promise<SyncResult> {
             thumbnail_url: thumbnailUrl,
             tags,
             status: finalStatus,
+            published_at: publishedAt,
             metadata: {
               ...extraMetadata,
               driveFileId: file.id,
