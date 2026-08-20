@@ -1,32 +1,24 @@
 # -------------------------------------------------------------
-# 1. Base Image & Dependencies
+# 1. Builder Stage (Consolidated to save disk space)
 # -------------------------------------------------------------
-FROM node:20-alpine AS deps
+FROM node:20-alpine AS builder
 RUN apk add --no-cache libc6-compat openssl
 WORKDIR /app
 
 COPY package.json package-lock.json ./
 COPY prisma ./prisma/
 
+# Install dependencies
 RUN npm ci
 
-# -------------------------------------------------------------
-# 2. Builder
-# -------------------------------------------------------------
-FROM node:20-alpine AS builder
-RUN apk add --no-cache libc6-compat openssl
-WORKDIR /app
-
-COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-# Ensure public directory always exists
+# Ensure public directory exists
 RUN mkdir -p /app/public
 
-# Generate Prisma Client
+# Generate Prisma Client & Build
 RUN npx prisma generate
 
-# Build Next.js in standalone mode with constrained heap to prevent OOM kills
 ENV NEXT_TELEMETRY_DISABLED 1
 ENV NODE_ENV production
 ENV NODE_OPTIONS "--max-old-space-size=1536"
@@ -34,7 +26,7 @@ ENV NODE_OPTIONS "--max-old-space-size=1536"
 RUN npm run build
 
 # -------------------------------------------------------------
-# 3. Production Runner (Minimal footprint < 100MB)
+# 2. Production Runner (Minimal footprint < 100MB)
 # -------------------------------------------------------------
 FROM node:20-alpine AS runner
 RUN apk add --no-cache libc6-compat openssl
