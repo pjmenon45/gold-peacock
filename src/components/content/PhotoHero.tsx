@@ -18,15 +18,15 @@ export function PhotoHero({ imageUrl, title, metadata }: PhotoHeroProps) {
   return (
     <div className="space-y-4">
       {/* High-res Photo Container */}
-      <div className="relative w-full overflow-hidden rounded-2xl border border-border bg-background-soft shadow-sm max-h-[75vh]">
-        <div className="relative aspect-[16/10] w-full sm:aspect-[16/9]">
+      <div className="relative w-full overflow-hidden rounded-2xl border border-border bg-background-soft/70 shadow-sm flex items-center justify-center">
+        <div className="relative aspect-[16/10] sm:aspect-[16/9] w-full max-h-[75vh] p-2 sm:p-4">
           <Image
             src={imageUrl}
             alt={title}
             fill
             priority
             sizes="(max-width: 1200px) 100vw, 1200px"
-            className="object-cover"
+            className="object-contain"
           />
         </div>
       </div>

@@ -37,7 +37,7 @@ export function ContentCard({ item, variant = 'default', priority = false }: Con
         href={detailHref}
         className="group relative flex flex-col overflow-hidden rounded-2xl border border-border bg-card transition-all duration-200 hover:border-accent/50 hover:shadow-md"
       >
-        <div className="relative aspect-[4/3] w-full overflow-hidden bg-background-soft">
+        <div className="relative aspect-[4/3] w-full overflow-hidden bg-background-soft/70 flex items-center justify-center p-2">
           {item.media_url || item.thumbnail_url ? (
             <Image
               src={item.media_url || item.thumbnail_url || ''}
@@ -45,7 +45,7 @@ export function ContentCard({ item, variant = 'default', priority = false }: Con
               fill
               priority={priority}
               sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-              className="object-cover transition-transform duration-300 group-hover:scale-[1.03]"
+              className="object-contain transition-transform duration-300 group-hover:scale-[1.02] p-1.5"
             />
           ) : (
             <div className="flex h-full w-full items-center justify-center bg-background-soft text-secondary">
