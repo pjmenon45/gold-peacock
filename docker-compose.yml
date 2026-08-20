@@ -8,11 +8,17 @@ services:
     restart: always
     ports:
       - '3000:3000'
+    env_file:
+      - .env
     environment:
       - NODE_ENV=production
       - DATABASE_URL=postgresql://postgres:postgres_secret_password@db:5432/gold_peacock?schema=public
       - ADMIN_API_KEY=${ADMIN_API_KEY:-test-admin-secret-key-change-me}
       - NEXT_PUBLIC_SITE_URL=${NEXT_PUBLIC_SITE_URL:-http://localhost:3000}
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
+      - GOOGLE_REFRESH_TOKEN=${GOOGLE_REFRESH_TOKEN}
+      - DRIVE_SYNC_INTERVAL_MINUTES=${DRIVE_SYNC_INTERVAL_MINUTES:-60}
     depends_on:
       db:
         condition: service_healthy
