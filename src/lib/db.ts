@@ -67,6 +67,8 @@ export async function ensureDatabaseTables(): Promise<void> {
           DO $$ BEGIN
             ALTER TABLE "content" ALTER COLUMN "type" DROP DEFAULT;
           EXCEPTION WHEN others THEN null; END $$;
+        `);
+        await prisma.$executeRawUnsafe(`
           DO $$ BEGIN
             ALTER TABLE "content" ALTER COLUMN "type" TYPE "ContentType" USING "type"::"ContentType";
           EXCEPTION WHEN others THEN null; END $$;
@@ -76,9 +78,13 @@ export async function ensureDatabaseTables(): Promise<void> {
           DO $$ BEGIN
             ALTER TABLE "content" ALTER COLUMN "status" DROP DEFAULT;
           EXCEPTION WHEN others THEN null; END $$;
+        `);
+        await prisma.$executeRawUnsafe(`
           DO $$ BEGIN
             ALTER TABLE "content" ALTER COLUMN "status" TYPE "ContentStatus" USING "status"::"ContentStatus";
           EXCEPTION WHEN others THEN null; END $$;
+        `);
+        await prisma.$executeRawUnsafe(`
           DO $$ BEGIN
             ALTER TABLE "content" ALTER COLUMN "status" SET DEFAULT 'draft'::"ContentStatus";
           EXCEPTION WHEN others THEN null; END $$;
