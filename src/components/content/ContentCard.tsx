@@ -1,7 +1,7 @@
 import React from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { Play, Clock, Camera, ArrowUpRight } from 'lucide-react';
+import { Play, Clock, Camera } from 'lucide-react';
 import { ContentItem } from '@/types';
 import { Badge } from '@/components/ui/Badge';
 
@@ -29,6 +29,15 @@ export function ContentCard({ item, variant = 'default', priority = false }: Con
   const readTime = item.metadata?.readTime;
   const camera = item.metadata?.camera;
   const location = item.metadata?.location;
+
+  // Filter out 'draft' tag if the item is already published
+  const displayTags = (item.tags || []).filter(
+    (t) => !(item.status === 'published' && t.toLowerCase() === 'draft')
+  );
+
+  // Check if thumbnail is a valid image (not a raw video file stream)
+  const isVideoRawStream = item.type === 'video' && item.thumbnail_url?.startsWith('/api/drive-image/');
+  const hasValidThumbnail = Boolean(item.thumbnail_url && !isVideoRawStream);
 
   // Render PWTW image-forward card
   if (item.type === 'pwtw') {
@@ -71,7 +80,7 @@ export function ContentCard({ item, variant = 'default', priority = false }: Con
           </h3>
 
           <div className="mt-4 flex flex-wrap items-center gap-1.5 pt-2 border-t border-border/40">
-            {item.tags.slice(0, 3).map((tag) => (
+            {displayTags.slice(0, 3).map((tag) => (
               <Badge key={tag} size="sm" variant="default">
                 {tag}
               </Badge>
@@ -90,7 +99,7 @@ export function ContentCard({ item, variant = 'default', priority = false }: Con
         className="group flex flex-col sm:flex-row gap-4 p-4 rounded-2xl border border-border bg-card transition-all duration-200 hover:border-accent/50 hover:shadow-sm"
       >
         <div className="relative aspect-video sm:w-56 shrink-0 overflow-hidden rounded-xl bg-background-soft">
-          {item.thumbnail_url ? (
+          {hasValidThumbnail && item.thumbnail_url ? (
             <Image
               src={item.thumbnail_url}
               alt={item.title}
@@ -99,12 +108,12 @@ export function ContentCard({ item, variant = 'default', priority = false }: Con
               className="object-cover transition-transform duration-300 group-hover:scale-[1.03]"
             />
           ) : (
-            <div className="flex h-full w-full items-center justify-center text-secondary">
-              <Clock className="h-6 w-6 opacity-40" />
+            <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-zinc-800 to-zinc-950 text-white/50">
+              <Play className="h-7 w-7 opacity-70" />
             </div>
           )}
 
-          {item.type === 'video' && (
+          {item.type === 'video' && hasValidThumbnail && (
             <div className="absolute inset-0 flex items-center justify-center bg-black/20 group-hover:bg-black/30 transition-colors">
               <div className="flex h-9 w-9 items-center justify-center rounded-full bg-white/90 text-foreground shadow-sm group-hover:scale-110 transition-transform">
                 <Play className="h-4 w-4 fill-current ml-0.5" />
@@ -131,7 +140,7 @@ export function ContentCard({ item, variant = 'default', priority = false }: Con
           </div>
 
           <div className="mt-3 flex flex-wrap items-center gap-1.5">
-            {item.tags.slice(0, 3).map((tag) => (
+            {displayTags.slice(0, 3).map((tag) => (
               <Badge key={tag} size="sm">
                 {tag}
               </Badge>
@@ -150,7 +159,7 @@ export function ContentCard({ item, variant = 'default', priority = false }: Con
     >
       {/* Thumbnail area */}
       <div className="relative aspect-video w-full overflow-hidden bg-background-soft">
-        {item.thumbnail_url ? (
+        {hasValidThumbnail && item.thumbnail_url ? (
           <Image
             src={item.thumbnail_url}
             alt={item.title}
@@ -160,8 +169,8 @@ export function ContentCard({ item, variant = 'default', priority = false }: Con
             className="object-cover transition-transform duration-300 group-hover:scale-[1.03]"
           />
         ) : (
-          <div className="flex h-full w-full items-center justify-center text-secondary">
-            <Clock className="h-8 w-8 opacity-30" />
+          <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-zinc-800 to-zinc-950 text-white/50">
+            <Play className="h-10 w-10 opacity-70" />
           </div>
         )}
 
@@ -201,7 +210,7 @@ export function ContentCard({ item, variant = 'default', priority = false }: Con
         </h3>
 
         <div className="mt-4 flex flex-wrap items-center gap-1.5 pt-3 border-t border-border/40 mt-auto">
-          {item.tags.slice(0, 3).map((tag) => (
+          {displayTags.slice(0, 3).map((tag) => (
             <Badge key={tag} size="sm">
               {tag}
             </Badge>

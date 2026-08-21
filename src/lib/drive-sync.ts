@@ -23,6 +23,10 @@ function cleanTitle(filename: string): string {
     .trim();
 }
 
+function normalizeForMatching(str: string): string {
+  return str.toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+
 export interface SyncResult {
   totalProcessed: number;
   items: Array<{
@@ -47,15 +51,41 @@ export async function syncContentFromDrive(): Promise<SyncResult> {
   const refreshToken = process.env.GOOGLE_REFRESH_TOKEN;
 
   if (!clientId || !clientSecret || !refreshToken) {
-    throw new Error('Google OAuth credentials (GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REFRESH_TOKEN) not configured.');
+    throw new Error(
+      'Google OAuth credentials (GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REFRESH_TOKEN) not configured.'
+    );
   }
 
   const oauth2Client = new google.auth.OAuth2(clientId, clientSecret);
   oauth2Client.setCredentials({ refresh_token: refreshToken });
 
   const drive = google.drive({ version: 'v3', auth: oauth2Client });
+  const youtube = google.youtube({ version: 'v3', auth: oauth2Client });
 
-  // 1. Get folders
+  // 1. Pre-fetch existing YouTube videos on the channel for instant matching
+  const ytChannelVideos: Array<{ title: string; normalized: string; videoId: string }> = [];
+  try {
+    const ytRes = await youtube.search.list({
+      part: ['snippet'],
+      forMine: true,
+      type: ['video'],
+      maxResults: 50,
+    });
+    (ytRes.data.items || []).forEach((item) => {
+      if (item.id?.videoId && item.snippet?.title) {
+        ytChannelVideos.push({
+          title: item.snippet.title,
+          normalized: normalizeForMatching(item.snippet.title),
+          videoId: item.id.videoId,
+        });
+      }
+    });
+    console.log(`[Video-Agent] Found ${ytChannelVideos.length} existing videos on YouTube channel.`);
+  } catch (ytListErr: any) {
+    console.warn('[Video-Agent] Could not pre-fetch YouTube channel videos:', ytListErr.message);
+  }
+
+  // 2. Get Drive folders
   const foldersRes = await drive.files.list({
     q: "mimeType = 'application/vnd.google-apps.folder' and trashed = false",
     fields: 'files(id, name, parents)',
@@ -109,6 +139,7 @@ export async function syncContentFromDrive(): Promise<SyncResult> {
 
         const slug = slugify(filename);
         const title = cleanTitle(filename);
+        const normalizedTitle = normalizeForMatching(title);
 
         // Fetch existing entry if present
         const autoPublish = process.env.AUTO_PUBLISH === 'true';
@@ -120,16 +151,16 @@ export async function syncContentFromDrive(): Promise<SyncResult> {
         let mediaUrl = `/api/drive-image/${file.id}`;
         let thumbnailUrl = `/api/drive-image/${file.id}`;
         let body = `### ${title}\n\nContent synced from Google Drive (${folderName}).`;
-        let tags: string[] = ['Draft'];
+        let tags: string[] = ['AI', 'Engineering'];
         let extraMetadata: Record<string, any> = {};
 
         if (type === 'pwtw') {
-          body = `### ${title}\n\nVisual story from ${folderName}. Stored as draft for review.\n\n> "Every image tells a thousand words."`;
+          body = `### ${title}\n\nVisual story from ${folderName}.\n\n> "Every image tells a thousand words."`;
           tags = ['AI', 'Enterprise', 'Visual Essay', 'Infographic'];
           extraMetadata.alt_text = title;
         } else if (type === 'blog') {
           body = `### ${title}\n\nDraft article content synced from Google Drive file: \`${filename}\`.\n\n*Review and edit before publishing.*`;
-          tags = ['Blog', 'Draft'];
+          tags = ['Blog', 'Architecture'];
         } else if (type === 'video') {
           const existingMeta =
             existing?.metadata && typeof existing.metadata === 'object'
@@ -137,11 +168,24 @@ export async function syncContentFromDrive(): Promise<SyncResult> {
               : {};
           let youtubeId = existingMeta.youtubeId;
 
-          // If not yet uploaded to YouTube, stream and upload via YouTube Data API
+          // Step A: Check if this video matches an existing video on the YouTube channel
+          if (!youtubeId && ytChannelVideos.length > 0) {
+            const matched = ytChannelVideos.find(
+              (y) =>
+                y.normalized === normalizedTitle ||
+                y.normalized.includes(normalizedTitle) ||
+                normalizedTitle.includes(y.normalized)
+            );
+            if (matched) {
+              youtubeId = matched.videoId;
+              console.log(`[Video-Agent] ✓ Matched "${title}" to YouTube video: ${youtubeId}`);
+            }
+          }
+
+          // Step B: If not matched and is a video file, upload to YouTube
           if (!youtubeId && (mimeType.includes('video') || filename.match(/\.(mp4|mov|avi|mkv|webm)$/i))) {
             try {
               console.log(`[Video-Agent] Streaming "${filename}" from Google Drive to YouTube...`);
-              const youtube = google.youtube({ version: 'v3', auth: oauth2Client });
               const fileStream = await drive.files.get(
                 { fileId: file.id, alt: 'media' },
                 { responseType: 'stream' }
@@ -156,7 +200,7 @@ export async function syncContentFromDrive(): Promise<SyncResult> {
                     tags: ['Software Engineering', 'AI', 'Tutorial'],
                   },
                   status: {
-                    privacyStatus: 'unlisted', // unlisted for safety during draft stage
+                    privacyStatus: 'unlisted',
                   },
                 },
                 media: {
@@ -167,7 +211,7 @@ export async function syncContentFromDrive(): Promise<SyncResult> {
               youtubeId = uploadRes.data.id;
               console.log(`[Video-Agent] ✓ Uploaded to YouTube with ID: ${youtubeId}`);
             } catch (ytErr: any) {
-              console.warn(`[Video-Agent] YouTube upload notice: ${ytErr.message}`);
+              console.warn(`[Video-Agent] YouTube upload note: ${ytErr.message}`);
             }
           }
 
@@ -177,13 +221,19 @@ export async function syncContentFromDrive(): Promise<SyncResult> {
             extraMetadata.youtubeId = youtubeId;
           } else {
             mediaUrl = existing?.media_url || `/api/drive-image/${file.id}`;
-            thumbnailUrl = existing?.thumbnail_url || `/api/drive-image/${file.id}`;
+            thumbnailUrl = ''; // Leave blank so ContentCard renders sleek player card instead of broken image
           }
 
           body =
-            existing?.body ||
-            `### ${title}\n\nVideo presentation and show notes.\n\n#### Overview\nThis video walkthrough covers key architectural concepts and engineering practices.`;
-          tags = existing?.tags && existing.tags.length > 0 ? existing.tags : ['Video', 'Architecture', 'AI'];
+            existing?.body && !existing.body.includes('synced from Google Drive')
+              ? existing.body
+              : `### ${title}\n\nVideo presentation and show notes.\n\n#### Overview\nThis video walkthrough covers key architectural concepts and engineering practices.`;
+          tags = ['Video', 'Architecture', 'AI'];
+        }
+
+        // Clean tags: Remove 'Draft' tag if item is published
+        if (finalStatus === 'published') {
+          tags = tags.filter((t) => t.toLowerCase() !== 'draft');
         }
 
         // 3. Publisher: Upsert to database
@@ -192,10 +242,12 @@ export async function syncContentFromDrive(): Promise<SyncResult> {
           update: {
             type,
             title,
-            body: existing?.body || body,
+            body,
             media_url: mediaUrl,
             thumbnail_url: thumbnailUrl,
-            tags: existing?.tags && existing.tags.length > 0 ? existing.tags : tags,
+            tags,
+            status: finalStatus,
+            published_at: publishedAt,
             metadata: {
               ...(typeof existing?.metadata === 'object' && existing?.metadata !== null ? existing.metadata : {}),
               ...extraMetadata,
