@@ -1,5 +1,6 @@
 import React from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 
 export function Footer() {
   const currentYear = new Date().getFullYear();
@@ -9,12 +10,17 @@ export function Footer() {
       <div className="mx-auto max-w-6xl px-6 py-12 sm:px-8">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
           <div className="space-y-1.5">
-            <div className="flex items-center gap-2">
-              <span className="flex h-5 w-5 items-center justify-center rounded-md bg-accent text-white font-bold text-[10px]">
-                GP
-              </span>
-              <p className="text-sm font-medium text-foreground tracking-tight">
-                Poorni Menon
+            <div className="flex items-center gap-2.5">
+              <div className="relative h-6 w-6 overflow-hidden rounded-full border border-border/80 bg-white p-0.5 shadow-sm">
+                <Image
+                  src="/logo.png"
+                  alt="Vyooh Logo"
+                  fill
+                  className="object-contain"
+                />
+              </div>
+              <p className="text-sm font-semibold text-foreground tracking-tight">
+                Vyooh
               </p>
             </div>
             <p className="text-xs text-secondary max-w-sm">
@@ -47,7 +53,7 @@ export function Footer() {
         </div>
 
         <div className="mt-8 pt-6 border-t border-border/60 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 text-xs text-secondary">
-          <p>© {currentYear} Poorni Menon. Built with Next.js & PostgreSQL.</p>
+          <p>© {currentYear} Vyooh a Metavyooh company. Built with Next.js & PostgreSQL.</p>
           <div className="flex items-center gap-4">
             <span className="inline-flex items-center gap-1.5">
               <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />

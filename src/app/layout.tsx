@@ -6,14 +6,18 @@ import { Footer } from '@/components/layout/Footer';
 
 export const metadata: Metadata = {
   title: {
-    default: 'Poorni Menon — Personal Content & Engineering',
-    template: '%s | Poorni Menon',
+    default: 'Vyooh — Autonomous AI Systems & Engineering',
+    template: '%s | Vyooh',
   },
   description:
-    'Personal content website exploring autonomous AI systems, modern software engineering, and visual stories.',
-  keywords: ['AI Agents', 'Software Engineering', 'Next.js', 'Photography', 'Technology', 'Blog'],
-  authors: [{ name: 'Poorni Menon' }],
-  creator: 'Poorni Menon',
+    'Vyooh — Exploring autonomous AI systems, modern software engineering, and visual stories.',
+  keywords: ['Vyooh', 'AI Agents', 'Software Engineering', 'Next.js', 'Photography', 'Technology', 'Blog'],
+  authors: [{ name: 'Vyooh' }],
+  creator: 'Vyooh',
+  icons: {
+    icon: '/logo.png',
+    apple: '/logo.png',
+  },
 };
 
 export default function RootLayout({

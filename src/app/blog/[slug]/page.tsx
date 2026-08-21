@@ -51,7 +51,7 @@ export default async function BlogDetailPage({ params }: BlogDetailPageProps) {
     : null;
 
   const readTime = item.metadata?.readTime;
-  const author = item.metadata?.author || 'Poorni Menon';
+  const author = item.metadata?.author || 'Vyooh';
 
   return (
     <div className="mx-auto max-w-4xl px-6 sm:px-8 py-10 sm:py-16 space-y-10">
