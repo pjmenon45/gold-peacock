@@ -1,5 +1,6 @@
 import React from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { ArrowRight, Video, BookOpen, Camera, Sparkles, Mail, Terminal } from 'lucide-react';
 import { getContentItems } from '@/lib/content';
 import { SectionHeader } from '@/components/content/SectionHeader';
@@ -25,9 +26,20 @@ export default async function HomePage() {
          ------------------------------------------------------------- */}
       <section className="mx-auto max-w-6xl px-6 sm:px-8">
         <div className="max-w-3xl space-y-6">
-          <div className="inline-flex items-center gap-2 rounded-full border border-border bg-background-soft px-3 py-1 text-xs text-secondary">
-            <span className="flex h-2 w-2 rounded-full bg-accent animate-pulse" />
-            <span>Engineer • Builder • Visual Storyteller</span>
+          <div className="flex items-center gap-4">
+            <div className="relative h-20 w-20 sm:h-24 sm:w-24 shrink-0 overflow-hidden rounded-full border-2 border-border/80 bg-white p-1.5 shadow-lg">
+              <Image
+                src="/logo.png"
+                alt="Vyooh Logo"
+                fill
+                className="object-contain"
+                priority
+              />
+            </div>
+            <div className="inline-flex items-center gap-2 rounded-full border border-border bg-background-soft px-3.5 py-1.5 text-xs text-secondary">
+              <span className="flex h-2 w-2 rounded-full bg-accent animate-pulse" />
+              <span>Engineer • Builder • Visual Storyteller</span>
+            </div>
           </div>
 
           <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight text-foreground leading-[1.1]">
@@ -35,7 +47,7 @@ export default async function HomePage() {
           </h1>
 
           <p className="text-lg sm:text-xl text-secondary leading-relaxed max-w-2xl">
-            Hi, I’m <span className="font-semibold text-foreground">Poorni Menon</span>. I build autonomous AI workflows, write about software architecture, and capture moments worth a thousand words.
+            Hi, we are <span className="font-semibold text-foreground">Vyooh a Metavyooh company</span>. We build autonomous AI workflows, provide AI Training, and capture moments worth a thousand words.
           </p>
 
           <div className="flex flex-wrap items-center gap-3 pt-2">

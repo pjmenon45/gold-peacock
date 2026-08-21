@@ -30,13 +30,13 @@ export function Navbar() {
 
   return (
     <header className="sticky top-0 z-40 w-full border-b border-border/80 glass-nav transition-colors duration-200">
-      <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-6 sm:px-8">
+      <div className="mx-auto flex h-20 max-w-6xl items-center justify-between px-6 sm:px-8">
         {/* Brand / Logo */}
         <Link
           href="/"
-          className="flex items-center gap-3 font-semibold text-foreground tracking-tight hover:opacity-90 transition-opacity"
+          className="flex items-center gap-3.5 font-semibold text-foreground tracking-tight hover:opacity-90 transition-opacity"
         >
-          <div className="relative h-8 w-8 overflow-hidden rounded-full border border-border/80 bg-white p-0.5 shadow-sm">
+          <div className="relative h-12 w-12 sm:h-14 sm:w-14 shrink-0 overflow-hidden rounded-full border border-border/80 bg-white p-1 shadow-md transition-transform hover:scale-105">
             <Image
               src="/logo.png"
               alt="Vyooh Logo"
@@ -45,7 +45,7 @@ export function Navbar() {
               priority
             />
           </div>
-          <span className="text-base font-bold tracking-tight">Vyooh</span>
+          <span className="text-xl sm:text-2xl font-bold tracking-tight text-foreground">Vyooh</span>
         </Link>
 
         {/* Desktop Navigation Links */}

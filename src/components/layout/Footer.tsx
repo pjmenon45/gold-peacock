@@ -10,8 +10,8 @@ export function Footer() {
       <div className="mx-auto max-w-6xl px-6 py-12 sm:px-8">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
           <div className="space-y-1.5">
-            <div className="flex items-center gap-2.5">
-              <div className="relative h-6 w-6 overflow-hidden rounded-full border border-border/80 bg-white p-0.5 shadow-sm">
+            <div className="flex items-center gap-3">
+              <div className="relative h-10 w-10 sm:h-12 sm:w-12 shrink-0 overflow-hidden rounded-full border border-border/80 bg-white p-0.5 shadow-md">
                 <Image
                   src="/logo.png"
                   alt="Vyooh Logo"
@@ -19,7 +19,7 @@ export function Footer() {
                   className="object-contain"
                 />
               </div>
-              <p className="text-sm font-semibold text-foreground tracking-tight">
+              <p className="text-base font-bold text-foreground tracking-tight">
                 Vyooh
               </p>
             </div>
