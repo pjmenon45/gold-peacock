@@ -138,7 +138,7 @@ export async function syncContentFromDrive(): Promise<SyncResult> {
         }
 
         const slug = slugify(filename);
-        const title = cleanTitle(filename);
+        let title = cleanTitle(filename);
         const normalizedTitle = normalizeForMatching(title);
 
         // Fetch existing entry if present
