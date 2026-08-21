@@ -159,8 +159,49 @@ export async function syncContentFromDrive(): Promise<SyncResult> {
           tags = ['AI', 'Enterprise', 'Visual Essay', 'Infographic'];
           extraMetadata.alt_text = title;
         } else if (type === 'blog') {
-          body = `### ${title}\n\nDraft article content synced from Google Drive file: \`${filename}\`.\n\n*Review and edit before publishing.*`;
-          tags = ['Blog', 'Architecture'];
+          // Download full text from Google Drive (Google Doc or Markdown file)
+          try {
+            console.log(`[Blog-Agent] Fetching full article content for "${filename}"...`);
+            let rawText = '';
+
+            if (mimeType.includes('document')) {
+              const docExport = await drive.files.export(
+                { fileId: file.id, mimeType: 'text/plain' },
+                { responseType: 'text' }
+              );
+              rawText = String(docExport.data || '');
+            } else {
+              const fileRes = await drive.files.get(
+                { fileId: file.id, alt: 'media' },
+                { responseType: 'text' }
+              );
+              rawText = String(fileRes.data || '');
+            }
+
+            if (rawText.trim().length > 0) {
+              body = rawText.trim();
+
+              // Extract H1 header if present for a clean title
+              const h1Match = body.match(/^#\s+(.+)$/m);
+              if (h1Match && h1Match[1]) {
+                title = h1Match[1].replace(/[*_~`]/g, '').trim();
+              }
+
+              // Calculate read time
+              const wordCount = body.split(/\s+/).filter(Boolean).length;
+              const readTime = `${Math.max(1, Math.ceil(wordCount / 200))} min read`;
+              extraMetadata.readTime = readTime;
+              extraMetadata.wordCount = wordCount;
+            }
+          } catch (blogErr: any) {
+            console.warn(`[Blog-Agent] Could not download file text:`, blogErr.message);
+          }
+
+          thumbnailUrl =
+            existing?.thumbnail_url ||
+            'https://images.unsplash.com/photo-1620712943543-bcc4688e7485?auto=format&fit=crop&w=1200&q=80';
+          mediaUrl = thumbnailUrl;
+          tags = ['AI', 'Neural Networks', 'Expert Systems', 'Architecture'];
         } else if (type === 'video') {
           const existingMeta =
             existing?.metadata && typeof existing.metadata === 'object'
