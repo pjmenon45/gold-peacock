@@ -105,6 +105,7 @@ export default async function VideoDetailPage({ params }: VideoDetailPageProps) 
         <VideoPlayer
           mediaUrl={item.media_url}
           youtubeId={item.metadata?.youtubeId}
+          thumbnailUrl={item.thumbnail_url}
           title={item.title}
         />
       </div>

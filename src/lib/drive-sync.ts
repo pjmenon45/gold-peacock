@@ -173,7 +173,7 @@ export async function syncContentFromDrive(): Promise<SyncResult> {
 
           if (youtubeId) {
             mediaUrl = `https://www.youtube.com/watch?v=${youtubeId}`;
-            thumbnailUrl = `https://i.ytimg.com/vi/${youtubeId}/maxresdefault.jpg`;
+            thumbnailUrl = `https://i.ytimg.com/vi/${youtubeId}/hqdefault.jpg`;
             extraMetadata.youtubeId = youtubeId;
           } else {
             mediaUrl = existing?.media_url || `/api/drive-image/${file.id}`;
