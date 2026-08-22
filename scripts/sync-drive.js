@@ -35,6 +35,14 @@ async function triggerSync() {
       console.log('No new files to process.');
     }
 
+    if (data.data?.deletedItems && data.data.deletedItems.length > 0) {
+      console.log('\nDeleted / Removed Items:');
+      data.data.deletedItems.forEach((item) => {
+        const path = item.type === 'video' ? 'videos' : item.type;
+        console.log(`🗑️  [${item.type.toUpperCase()}] "${item.title}" -> Removed from /${path}/${item.slug}`);
+      });
+    }
+
     if (data.data?.errors && data.data.errors.length > 0) {
       console.warn('\nWarnings/Errors:');
       data.data.errors.forEach((e) => console.warn(`- ${e.filename}: ${e.error}`));
