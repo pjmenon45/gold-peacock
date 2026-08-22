@@ -50,7 +50,7 @@ export interface SyncResult {
 
 /**
  * Main Google Drive Sync Function
- * Supports Full Create, Modify/Update, and Deletion synchronization
+ * Comprehensive Create, Modify/Update, and Deletion Synchronization for all content types
  */
 export async function syncContentFromDrive(): Promise<SyncResult> {
   await ensureDatabaseTables();
@@ -117,7 +117,7 @@ export async function syncContentFromDrive(): Promise<SyncResult> {
     errors: [],
   };
 
-  // Track all active file IDs in Google Drive for deletion reconciliation
+  // Track active file IDs in Google Drive for deletion reconciliation
   const activeDriveFileIds = new Set<string>();
   let successfullyScannedFolders = 0;
 
@@ -129,12 +129,34 @@ export async function syncContentFromDrive(): Promise<SyncResult> {
     });
 
     successfullyScannedFolders++;
-    const files = filesRes.data.files || [];
+    let rawFiles = filesRes.data.files || [];
 
-    for (const file of files) {
+    // Sort files by modifiedTime descending (newest edits first)
+    rawFiles.sort((a, b) => {
+      const timeA = new Date(a.modifiedTime || 0).getTime();
+      const timeB = new Date(b.modifiedTime || 0).getTime();
+      return timeB - timeA;
+    });
+
+    // Deduplicate by slug within the same folder (keeps the newest modified file)
+    const seenSlugsInFolder = new Set<string>();
+    const deduplicatedFiles: typeof rawFiles = [];
+
+    for (const file of rawFiles) {
       if (!file.id || !file.name) continue;
-
       activeDriveFileIds.add(file.id);
+
+      const slug = slugify(file.name);
+      if (!seenSlugsInFolder.has(slug)) {
+        seenSlugsInFolder.add(slug);
+        deduplicatedFiles.push(file);
+      } else {
+        console.log(`[Drive-Sync] Skipping older duplicate file "${file.name}" in favor of newer edit.`);
+      }
+    }
+
+    for (const file of deduplicatedFiles) {
+      if (!file.id || !file.name) continue;
 
       try {
         const filename = file.name;
@@ -160,7 +182,7 @@ export async function syncContentFromDrive(): Promise<SyncResult> {
         let title = cleanTitle(filename);
         const normalizedTitle = normalizeForMatching(title);
 
-        // Fetch existing entry by driveFileId or slug
+        // Fetch existing entry from database
         const autoPublish = process.env.AUTO_PUBLISH === 'true';
         const existing = await prisma.content.findUnique({ where: { slug } });
         const existingMeta =
@@ -168,75 +190,89 @@ export async function syncContentFromDrive(): Promise<SyncResult> {
             ? (existing.metadata as Record<string, any>)
             : {};
 
-        const isModified =
-          !existing ||
-          existingMeta.modifiedTime !== file.modifiedTime ||
-          existingMeta.driveFileId !== file.id;
-
         const finalStatus = existing ? existing.status : (autoPublish ? 'published' : 'draft');
         const publishedAt = existing?.published_at || (finalStatus === 'published' ? new Date() : null);
 
-        // 2. Specialist Processing & Modification
+        // 2. Specialist Processing & Live Modification Extraction
         let mediaUrl = `/api/drive-image/${file.id}`;
         let thumbnailUrl = `/api/drive-image/${file.id}`;
-        let body = existing?.body || `### ${title}\n\nContent synced from Google Drive (${folderName}).`;
+        let body = `### ${title}\n\nContent synced from Google Drive (${folderName}).`;
         let tags: string[] = ['AI', 'Engineering'];
         let extraMetadata: Record<string, any> = {};
 
+        // -------------------------------------------------------------
+        // A. PWTW Specialist
+        // -------------------------------------------------------------
         if (type === 'pwtw') {
+          mediaUrl = `/api/drive-image/${file.id}`;
+          thumbnailUrl = `/api/drive-image/${file.id}`;
           body = `### ${title}\n\nVisual story from ${folderName}.\n\n> "Every image tells a thousand words."`;
           tags = ['AI', 'Enterprise', 'Visual Essay', 'Infographic'];
           extraMetadata.alt_text = title;
-        } else if (type === 'blog') {
-          // Re-fetch blog text if new or modified on Google Drive
-          if (isModified || !existing?.body || existing.body.includes('synced from Google Drive')) {
-            try {
-              console.log(`[Blog-Agent] Fetching full article content for "${filename}"...`);
-              let rawText = '';
+        }
 
-              if (mimeType.includes('document')) {
-                const docExport = await drive.files.export(
-                  { fileId: file.id, mimeType: 'text/plain' },
-                  { responseType: 'text' }
-                );
-                rawText = String(docExport.data || '');
-              } else {
-                const fileRes = await drive.files.get(
-                  { fileId: file.id, alt: 'media' },
-                  { responseType: 'text' }
-                );
-                rawText = String(fileRes.data || '');
-              }
+        // -------------------------------------------------------------
+        // B. Blog Specialist (Downloads latest text from Google Doc or Markdown)
+        // -------------------------------------------------------------
+        else if (type === 'blog') {
+          try {
+            console.log(`[Blog-Agent] Fetching latest content for "${filename}" (${file.id})...`);
+            let rawText = '';
 
-              if (rawText.trim().length > 0) {
-                body = rawText.trim();
-
-                // Extract H1 header if present for a clean title
-                const h1Match = body.match(/^#\s+(.+)$/m);
-                if (h1Match && h1Match[1]) {
-                  title = h1Match[1].replace(/[*_~`]/g, '').trim();
-                }
-
-                // Calculate read time
-                const wordCount = body.split(/\s+/).filter(Boolean).length;
-                const readTime = `${Math.max(1, Math.ceil(wordCount / 200))} min read`;
-                extraMetadata.readTime = readTime;
-                extraMetadata.wordCount = wordCount;
-              }
-            } catch (blogErr: any) {
-              console.warn(`[Blog-Agent] Note downloading file text:`, blogErr.message);
+            if (mimeType.includes('document') || mimeType === 'application/vnd.google-apps.document') {
+              const docExport = await drive.files.export(
+                { fileId: file.id, mimeType: 'text/plain' },
+                { responseType: 'text' }
+              );
+              rawText = String(docExport.data || '');
+            } else {
+              const fileRes = await drive.files.get(
+                { fileId: file.id, alt: 'media' },
+                { responseType: 'text' }
+              );
+              rawText = String(fileRes.data || '');
             }
+
+            if (rawText.trim().length > 0) {
+              body = rawText.trim();
+
+              // Extract H1 header if present for a clean title
+              const h1Match = body.match(/^#\s+(.+)$/m);
+              if (h1Match && h1Match[1]) {
+                title = h1Match[1].replace(/[*_~`]/g, '').trim();
+              } else {
+                // If Google doc text starts with title line
+                const firstLine = body.split('\n')[0].trim();
+                if (firstLine.length > 5 && firstLine.length < 100) {
+                  title = firstLine.replace(/[*_~`#]/g, '').trim();
+                }
+              }
+
+              // Calculate read time
+              const wordCount = body.split(/\s+/).filter(Boolean).length;
+              const readTime = `${Math.max(1, Math.ceil(wordCount / 200))} min read`;
+              extraMetadata.readTime = readTime;
+              extraMetadata.wordCount = wordCount;
+            }
+          } catch (blogErr: any) {
+            console.warn(`[Blog-Agent] Error downloading blog text:`, blogErr.message);
           }
 
           thumbnailUrl =
-            existing?.thumbnail_url ||
-            'https://images.unsplash.com/photo-1620712943543-bcc4688e7485?auto=format&fit=crop&w=1200&q=80';
+            existing?.thumbnail_url && !existing.thumbnail_url.startsWith('/api/drive-image/')
+              ? existing.thumbnail_url
+              : 'https://images.unsplash.com/photo-1620712943543-bcc4688e7485?auto=format&fit=crop&w=1200&q=80';
           mediaUrl = thumbnailUrl;
           tags = ['AI', 'Neural Networks', 'Expert Systems', 'Architecture'];
-        } else if (type === 'video') {
+        }
+
+        // -------------------------------------------------------------
+        // C. Video Specialist (YouTube Matching & Upload)
+        // -------------------------------------------------------------
+        else if (type === 'video') {
           let youtubeId = existingMeta.youtubeId;
 
-          // Step A: Check if this video matches an existing video on the YouTube channel
+          // Check if this video matches an existing video on the YouTube channel
           if (!youtubeId && ytChannelVideos.length > 0) {
             const matched = ytChannelVideos.find(
               (y) =>
@@ -250,7 +286,7 @@ export async function syncContentFromDrive(): Promise<SyncResult> {
             }
           }
 
-          // Step B: If not matched and is a video file, upload to YouTube
+          // If not matched and is a video file, upload to YouTube
           if (!youtubeId && (mimeType.includes('video') || filename.match(/\.(mp4|mov|avi|mkv|webm)$/i))) {
             try {
               console.log(`[Video-Agent] Streaming "${filename}" from Google Drive to YouTube...`);
@@ -304,7 +340,7 @@ export async function syncContentFromDrive(): Promise<SyncResult> {
           tags = tags.filter((t) => t.toLowerCase() !== 'draft');
         }
 
-        // 3. Publisher: Upsert to database
+        // 3. Publisher: Upsert to database (updates title, body, media_url, modifiedTime, etc.)
         const saved = await prisma.content.upsert({
           where: { slug },
           update: {
@@ -323,6 +359,7 @@ export async function syncContentFromDrive(): Promise<SyncResult> {
               originalFilename: filename,
               folderName,
               modifiedTime: file.modifiedTime,
+              lastSyncedAt: new Date().toISOString(),
             },
           },
           create: {
@@ -342,6 +379,7 @@ export async function syncContentFromDrive(): Promise<SyncResult> {
               folderName,
               createdTime: file.createdTime,
               modifiedTime: file.modifiedTime,
+              lastSyncedAt: new Date().toISOString(),
             },
           },
         });
@@ -354,7 +392,7 @@ export async function syncContentFromDrive(): Promise<SyncResult> {
           slug: saved.slug,
           status: saved.status,
           folder: folderName,
-          action: !existing ? 'created' : isModified ? 'updated' : 'synced',
+          action: !existing ? 'created' : 'updated',
         });
       } catch (err: any) {
         result.errors.push({
