@@ -1,6 +1,5 @@
 import React from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
 import { ArrowRight, Video, BookOpen, Camera, Sparkles, Mail, Terminal } from 'lucide-react';
 import { getContentItems } from '@/lib/content';
 import { SectionHeader } from '@/components/content/SectionHeader';
@@ -26,20 +25,9 @@ export default async function HomePage() {
          ------------------------------------------------------------- */}
       <section className="mx-auto max-w-6xl px-6 sm:px-8">
         <div className="max-w-3xl space-y-6">
-          <div className="flex items-center gap-4">
-            <div className="relative h-20 w-20 sm:h-24 sm:w-24 shrink-0 overflow-hidden rounded-full border-2 border-border/80 bg-white p-1.5 shadow-lg">
-              <Image
-                src="/logo.png"
-                alt="Vyooh Logo"
-                fill
-                className="object-contain"
-                priority
-              />
-            </div>
-            <div className="inline-flex items-center gap-2 rounded-full border border-border bg-background-soft px-3.5 py-1.5 text-xs text-secondary">
-              <span className="flex h-2 w-2 rounded-full bg-accent animate-pulse" />
-              <span>Engineer • Builder • Visual Storyteller</span>
-            </div>
+          <div className="inline-flex items-center gap-2 rounded-full border border-border bg-background-soft px-3.5 py-1.5 text-xs text-secondary">
+            <span className="flex h-2 w-2 rounded-full bg-accent animate-pulse" />
+            <span>Engineer • Builder • Visual Storyteller</span>
           </div>
 
           <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight text-foreground leading-[1.1]">
