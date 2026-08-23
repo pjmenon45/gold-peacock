@@ -1,66 +1,103 @@
-// Zero-dependency Google Drive Sync Trigger CLI
+// Zero-dependency Google Drive Sync Trigger & Continuous Watcher
 // Uses native Node.js fetch to call the protected Admin API
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
 const ADMIN_API_KEY =
   process.env.ADMIN_API_KEY ||
-  '7fc139e439cfb833a1bd07ff3929ebf2583429be15d335e4d114b42e5f2ef1ab';
+  'test-admin-secret-key-change-me';
 
-async function triggerSync() {
-  console.log(`🔄 Triggering Google Drive Sync via ${SITE_URL}/api/admin/sync ...`);
+function getTimestamp() {
+  return new Date().toISOString().replace('T', ' ').substring(0, 19);
+}
+
+async function triggerSync(isInitial = false) {
+  const timestamp = getTimestamp();
+  console.log(`[${timestamp}] 🔄 Checking Google Drive for new/modified/deleted content...`);
 
   try {
     const res = await fetch(`${SITE_URL}/api/admin/sync`, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${ADMIN_API_KEY}`,
+        'x-api-key': ADMIN_API_KEY,
         'Content-Type': 'application/json',
       },
     });
 
-    const data = await res.json();
-
     if (!res.ok) {
-      throw new Error(data.error || `HTTP ${res.status}`);
+      const errText = await res.text();
+      throw new Error(`HTTP ${res.status}: ${errText}`);
     }
 
-    console.log(`✨ ${data.message}`);
-    if (data.data?.items && data.data.items.length > 0) {
-      console.log('\nProcessed Items:');
-      data.data.items.forEach((item) => {
+    const data = await res.json();
+    console.log(`[${timestamp}] ✨ ${data.message}`);
+
+    const updatedItems = data.data?.items?.filter(
+      (i) => i.action === 'created' || i.action === 'updated'
+    ) || [];
+
+    if (updatedItems.length > 0) {
+      console.log(`[${timestamp}] 📝 Updated/Created Items (${updatedItems.length}):`);
+      updatedItems.forEach((item) => {
         const path = item.type === 'video' ? 'videos' : item.type;
-        console.log(`✓ [${item.type.toUpperCase()}] "${item.title}" (${item.status}) -> /${path}/${item.slug}`);
+        console.log(
+          `  ✓ [${item.type.toUpperCase()}] "${item.title}" (${item.action}) -> /${path}/${item.slug}`
+        );
       });
-    } else {
-      console.log('No new files to process.');
     }
 
     if (data.data?.deletedItems && data.data.deletedItems.length > 0) {
-      console.log('\nDeleted / Removed Items:');
+      console.log(`[${timestamp}] 🗑️ Deleted/Removed Items (${data.data.deletedItems.length}):`);
       data.data.deletedItems.forEach((item) => {
         const path = item.type === 'video' ? 'videos' : item.type;
-        console.log(`🗑️  [${item.type.toUpperCase()}] "${item.title}" -> Removed from /${path}/${item.slug}`);
+        console.log(`  🗑️ [${item.type.toUpperCase()}] "${item.title}" -> Removed from /${path}/${item.slug}`);
       });
     }
 
-    if (data.data?.errors && data.data.errors.length > 0) {
-      console.warn('\nWarnings/Errors:');
-      data.data.errors.forEach((e) => console.warn(`- ${e.filename}: ${e.error}`));
+    if (updatedItems.length === 0 && (!data.data?.deletedItems || data.data.deletedItems.length === 0)) {
+      console.log(`[${timestamp}] 💤 No changes detected in Google Drive.`);
     }
+
+    if (data.data?.errors && data.data.errors.length > 0) {
+      console.warn(`[${timestamp}] ⚠️ Warnings/Errors:`);
+      data.data.errors.forEach((e) => console.warn(`  - ${e.filename}: ${e.error}`));
+    }
+    return true;
   } catch (error) {
-    console.error('❌ Sync failed:', error.message);
+    console.error(`[${timestamp}] ❌ Sync check failed:`, error.message);
+    return false;
   }
 }
 
-// Watcher mode support
-if (process.argv.includes('--watch')) {
-  const intervalMinutes = parseInt(process.env.DRIVE_SYNC_INTERVAL_MINUTES || '60', 10);
-  const INTERVAL_MS = intervalMinutes * 60 * 1000;
+async function startWatcher() {
+  // Default to 1 minute for near real-time automatic detection
+  const intervalMinutes = parseFloat(process.env.DRIVE_SYNC_INTERVAL_MINUTES || '1');
+  const INTERVAL_MS = Math.max(15000, Math.floor(intervalMinutes * 60 * 1000));
   const display = intervalMinutes >= 60 ? `${intervalMinutes / 60} hour(s)` : `${intervalMinutes} minute(s)`;
 
-  console.log(`🚀 Starting Google Drive sync watcher (polling every ${display})...`);
-  triggerSync();
-  setInterval(triggerSync, INTERVAL_MS);
+  console.log(`🚀 Starting 24/7 Google Drive Sync Watcher (Checking every ${display})...`);
+  console.log(`🎯 Target Endpoint: ${SITE_URL}/api/admin/sync\n`);
+
+  // Wait for the app container to be ready on initial startup
+  let ready = false;
+  let attempts = 0;
+  while (!ready && attempts < 15) {
+    attempts++;
+    ready = await triggerSync(true);
+    if (!ready) {
+      console.log(`⏳ Waiting for app to be ready (attempt ${attempts}/15)...`);
+      await new Promise((r) => setTimeout(r, 4000));
+    }
+  }
+
+  // Periodic Watcher Loop
+  setInterval(async () => {
+    await triggerSync(false);
+  }, INTERVAL_MS);
+}
+
+if (process.argv.includes('--watch')) {
+  startWatcher();
 } else {
   triggerSync();
 }
