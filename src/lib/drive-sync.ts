@@ -239,12 +239,18 @@ export async function syncContentFromDrive(): Promise<SyncResult> {
               // Extract H1 header if present for a clean title
               const h1Match = body.match(/^#\s+(.+)$/m);
               if (h1Match && h1Match[1]) {
-                title = h1Match[1].replace(/[*_~`]/g, '').trim();
+                title = h1Match[1]
+                  .replace(/[*_~`]/g, '')
+                  .replace(/\[cite:[^\]]+\]/gi, '')
+                  .trim();
               } else {
                 // If Google doc text starts with title line
                 const firstLine = body.split('\n')[0].trim();
                 if (firstLine.length > 5 && firstLine.length < 100) {
-                  title = firstLine.replace(/[*_~`#]/g, '').trim();
+                  title = firstLine
+                    .replace(/[*_~`#]/g, '')
+                    .replace(/\[cite:[^\]]+\]/gi, '')
+                    .trim();
                 }
               }
 

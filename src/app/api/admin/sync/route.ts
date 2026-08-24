@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { revalidatePath } from 'next/cache';
 import { syncContentFromDrive } from '@/lib/drive-sync';
 
 export const dynamic = 'force-dynamic';
@@ -34,9 +35,20 @@ export async function POST(request: NextRequest) {
 
   try {
     const result = await syncContentFromDrive();
+
+    // Invalidate Next.js cache so newly synced items are immediately rendered live
+    try {
+      revalidatePath('/', 'layout');
+      revalidatePath('/blog');
+      revalidatePath('/videos');
+      revalidatePath('/pwtw');
+    } catch (cacheErr: any) {
+      console.warn('Revalidate cache note:', cacheErr.message);
+    }
+
     return NextResponse.json({
       success: true,
-      message: `Sync completed. Processed ${result.totalProcessed} item(s).`,
+      message: `Sync completed. Processed ${result.totalProcessed} item(s), Deleted ${result.totalDeleted} item(s).`,
       data: result,
     });
   } catch (error: any) {
