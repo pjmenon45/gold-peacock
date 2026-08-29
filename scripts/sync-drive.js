@@ -70,8 +70,8 @@ async function triggerSync(isInitial = false) {
 }
 
 async function startWatcher() {
-  // Default to 1 minute for near real-time automatic detection
-  const intervalMinutes = parseFloat(process.env.DRIVE_SYNC_INTERVAL_MINUTES || '1');
+  // Default to 1440 minutes (24 hours)
+  const intervalMinutes = parseFloat(process.env.DRIVE_SYNC_INTERVAL_MINUTES || '1440');
   const INTERVAL_MS = Math.max(15000, Math.floor(intervalMinutes * 60 * 1000));
   const display = intervalMinutes >= 60 ? `${intervalMinutes / 60} hour(s)` : `${intervalMinutes} minute(s)`;
 
