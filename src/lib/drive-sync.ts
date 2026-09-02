@@ -27,6 +27,205 @@ function normalizeForMatching(str: string): string {
   return str.toLowerCase().replace(/[^a-z0-9]/g, '');
 }
 
+// -------------------------------------------------------------
+// Dynamic Content & Topic Analyzer
+// -------------------------------------------------------------
+const TOPIC_RULES = [
+  {
+    topic: 'chatbots',
+    keywords: [
+      'chatbot',
+      'chat bot',
+      'support',
+      'conversational',
+      'finite-state',
+      'fsm',
+      'telemetry',
+      'deflection',
+      'carrier',
+      'operator',
+      'dialogue',
+      'customer',
+      'negation',
+    ],
+    tags: ['Chatbots', 'Conversational AI', 'State Machines', 'Customer Experience'],
+    image:
+      'https://images.unsplash.com/photo-1531746790731-6c087fecd65a?auto=format&fit=crop&w=1200&q=80',
+  },
+  {
+    topic: 'neural_networks',
+    keywords: [
+      'neural network',
+      'expert system',
+      'deep learning',
+      'weights',
+      'turbotax',
+      'smarterchild',
+      'perceptron',
+      'backpropagation',
+      'machine learning',
+    ],
+    tags: ['Neural Networks', 'Expert Systems', 'Machine Learning', 'AI Architecture'],
+    image:
+      'https://images.unsplash.com/photo-1620712943543-bcc4688e7485?auto=format&fit=crop&w=1200&q=80',
+  },
+  {
+    topic: 'agentic_ai',
+    keywords: [
+      'agentic',
+      'autonomous',
+      'multi-agent',
+      'orchestration',
+      'subagent',
+      'antigravity',
+      'agent framework',
+      'workflow',
+    ],
+    tags: ['Agentic AI', 'Autonomous Systems', 'Orchestration', 'Workflows'],
+    image:
+      'https://images.unsplash.com/photo-1485827404703-89b55fcc595e?auto=format&fit=crop&w=1200&q=80',
+  },
+  {
+    topic: 'rag_vector',
+    keywords: [
+      'rag',
+      'retrieval',
+      'vector',
+      'embedding',
+      'semantic search',
+      'augmented generation',
+      'knowledge base',
+    ],
+    tags: ['RAG', 'Vector Search', 'Information Retrieval', 'AI'],
+    image:
+      'https://images.unsplash.com/photo-1558494949-ef010cbdcc31?auto=format&fit=crop&w=1200&q=80',
+  },
+  {
+    topic: 'cloud_infra',
+    keywords: [
+      'docker',
+      'kubernetes',
+      'postgres',
+      'cloud',
+      'devops',
+      'droplet',
+      'infrastructure',
+      'server',
+      'linux',
+      'database',
+    ],
+    tags: ['DevOps', 'Cloud Infrastructure', 'PostgreSQL', 'Docker'],
+    image:
+      'https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&w=1200&q=80',
+  },
+  {
+    topic: 'edtech',
+    keywords: [
+      'k12',
+      'education',
+      'edtech',
+      'school',
+      'student',
+      'learning',
+      'curriculum',
+      'classroom',
+      'teacher',
+    ],
+    tags: ['EdTech', 'Education', 'Technology', 'Architecture'],
+    image:
+      'https://images.unsplash.com/photo-1509062522246-3755977927d7?auto=format&fit=crop&w=1200&q=80',
+  },
+  {
+    topic: 'software_craft',
+    keywords: [
+      'typescript',
+      'react',
+      'next.js',
+      'frontend',
+      'software craft',
+      'refactor',
+      'clean code',
+      'design pattern',
+      'codebase',
+    ],
+    tags: ['Software Engineering', 'Modern Web', 'TypeScript', 'Next.js'],
+    image:
+      'https://images.unsplash.com/photo-1555066931-4365d14bab8c?auto=format&fit=crop&w=1200&q=80',
+  },
+];
+
+const CURATED_FALLBACK_IMAGES = [
+  'https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=1200&q=80', // Circuits & Hardware
+  'https://images.unsplash.com/photo-1507238691740-187a5b1d37b8?auto=format&fit=crop&w=1200&q=80', // Minimal Tech Workspace
+  'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=1200&q=80', // Abstract Digital Flow
+  'https://images.unsplash.com/photo-1634017839464-5c339ebe3cb4?auto=format&fit=crop&w=1200&q=80', // 3D Futuristic Shapes
+  'https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?auto=format&fit=crop&w=1200&q=80', // Binary & Data
+  'https://images.unsplash.com/photo-1550751827-4bd374c3f58b?auto=format&fit=crop&w=1200&q=80', // Cyber Architecture
+];
+
+function analyzeArticleContent(
+  title: string,
+  body: string,
+  slug: string
+): { tags: string[]; coverImage: string } {
+  // 1. Check for YAML frontmatter tags
+  const fmMatch = body.match(/^---\s*\n([\s\S]*?)\n---/);
+  let explicitTags: string[] | null = null;
+  if (fmMatch && fmMatch[1]) {
+    const yaml = fmMatch[1];
+    const tagsInline = yaml.match(/tags:\s*\[([^\]]+)\]/i);
+    const tagsList = yaml.match(/tags:\s*\n((?:\s*-\s*.+\n?)+)/i);
+    if (tagsInline && tagsInline[1]) {
+      explicitTags = tagsInline[1].split(',').map((s) => s.replace(/['"]/g, '').trim()).filter(Boolean);
+    } else if (tagsList && tagsList[1]) {
+      explicitTags = tagsList[1]
+        .split('\n')
+        .map((l) => l.replace(/^\s*-\s*/, '').trim())
+        .filter(Boolean);
+    }
+  }
+
+  // 2. Check for embedded markdown / HTML image in body
+  const embeddedMdImg = body.match(/!\[.*?\]\((https?:\/\/[^\s\)]+)\)/);
+  const embeddedHtmlImg = body.match(/<img[^>]+src=["'](https?:\/\/[^"']+)["']/i);
+  const explicitImage = embeddedMdImg ? embeddedMdImg[1] : embeddedHtmlImg ? embeddedHtmlImg[1] : null;
+
+  // 3. Keyword matching & topic scoring
+  const combined = `${title} ${body}`.toLowerCase();
+  let bestRule = TOPIC_RULES[0];
+  let maxScore = -1;
+
+  for (const rule of TOPIC_RULES) {
+    let score = 0;
+    for (const kw of rule.keywords) {
+      if (combined.includes(kw)) {
+        score += title.toLowerCase().includes(kw) ? 3 : 1;
+      }
+    }
+    if (score > maxScore && score >= 2) {
+      maxScore = score;
+      bestRule = rule;
+    }
+  }
+
+  // Fallback hash for unique images if no high-confidence topic match
+  let fallbackImage = bestRule.image;
+  if (maxScore < 2) {
+    let hash = 0;
+    for (let i = 0; i < slug.length; i++) {
+      hash = (hash << 5) - hash + slug.charCodeAt(i);
+      hash |= 0;
+    }
+    const idx = Math.abs(hash) % CURATED_FALLBACK_IMAGES.length;
+    fallbackImage = CURATED_FALLBACK_IMAGES[idx];
+  }
+
+  return {
+    tags: explicitTags && explicitTags.length > 0 ? explicitTags : bestRule.tags,
+    coverImage: explicitImage || fallbackImage,
+  };
+}
+
 export interface SyncResult {
   totalProcessed: number;
   totalDeleted: number;
@@ -264,12 +463,11 @@ export async function syncContentFromDrive(): Promise<SyncResult> {
             console.warn(`[Blog-Agent] Error downloading blog text:`, blogErr.message);
           }
 
-          thumbnailUrl =
-            existing?.thumbnail_url && !existing.thumbnail_url.startsWith('/api/drive-image/')
-              ? existing.thumbnail_url
-              : 'https://images.unsplash.com/photo-1620712943543-bcc4688e7485?auto=format&fit=crop&w=1200&q=80';
-          mediaUrl = thumbnailUrl;
-          tags = ['AI', 'Neural Networks', 'Expert Systems', 'Architecture'];
+          // Dynamic Topic, Tag, and Cover Image Analysis
+          const analysis = analyzeArticleContent(title, body, slug);
+          tags = analysis.tags;
+          thumbnailUrl = analysis.coverImage;
+          mediaUrl = analysis.coverImage;
         }
 
         // -------------------------------------------------------------
