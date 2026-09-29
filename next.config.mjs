@@ -8,7 +8,7 @@ const nextConfig = {
     ignoreDuringBuilds: true,
   },
   experimental: {
-    serverComponentsExternalPackages: ['googleapis', '@prisma/client', 'sharp'],
+    serverComponentsExternalPackages: ['googleapis', '@prisma/client', 'sharp', 'mammoth'],
   },
   images: {
     remotePatterns: [

@@ -1,4 +1,5 @@
 import { google } from 'googleapis';
+import mammoth from 'mammoth';
 import { prisma, ensureDatabaseTables } from './db';
 
 // Helper to generate a clean URL slug
@@ -31,6 +32,29 @@ function normalizeForMatching(str: string): string {
 // Dynamic Content & Topic Analyzer
 // -------------------------------------------------------------
 const TOPIC_RULES = [
+  {
+    topic: 'telecom_5g',
+    keywords: [
+      '5g',
+      'telecom',
+      'cellular',
+      'wireless',
+      'spectrum',
+      'mimo',
+      'monetization',
+      'operator',
+      'radio layer',
+      'cloud-native core',
+      'carrier',
+      'pipe vs. platform',
+      'pipe vs platform',
+      'slice',
+      'slicing',
+    ],
+    tags: ['5G', 'Telecommunications', 'Wireless Infrastructure', 'Monetization'],
+    image:
+      'https://images.unsplash.com/photo-1544197150-b99a580bb7a8?auto=format&fit=crop&w=1200&q=80',
+  },
   {
     topic: 'chatbots',
     keywords: [
@@ -368,7 +392,10 @@ export async function syncContentFromDrive(): Promise<SyncResult> {
         } else if (
           folderName.includes('Blog') ||
           mimeType.includes('document') ||
-          filename.endsWith('.md')
+          mimeType.includes('wordprocessingml') ||
+          filename.endsWith('.md') ||
+          filename.endsWith('.docx') ||
+          filename.endsWith('.txt')
         ) {
           type = 'blog';
         } else if (folderName.includes('PWTW') || mimeType.includes('image')) {
@@ -411,20 +438,39 @@ export async function syncContentFromDrive(): Promise<SyncResult> {
         }
 
         // -------------------------------------------------------------
-        // B. Blog Specialist (Downloads latest text from Google Doc or Markdown)
+        // B. Blog Specialist (Downloads latest text from Google Doc, Word Docx, or Markdown)
         // -------------------------------------------------------------
         else if (type === 'blog') {
           try {
             console.log(`[Blog-Agent] Fetching latest content for "${filename}" (${file.id})...`);
             let rawText = '';
 
-            if (mimeType.includes('document') || mimeType === 'application/vnd.google-apps.document') {
+            // 1. Microsoft Word (.docx) support via mammoth
+            if (
+              mimeType.includes('wordprocessingml') ||
+              filename.toLowerCase().endsWith('.docx')
+            ) {
+              const fileRes = await drive.files.get(
+                { fileId: file.id, alt: 'media' },
+                { responseType: 'arraybuffer' }
+              );
+              const buffer = Buffer.from(fileRes.data as ArrayBuffer);
+              const mammothResult = await mammoth.extractRawText({ buffer });
+              rawText = mammothResult.value || '';
+            }
+            // 2. Google Docs export
+            else if (
+              mimeType.includes('document') ||
+              mimeType === 'application/vnd.google-apps.document'
+            ) {
               const docExport = await drive.files.export(
                 { fileId: file.id, mimeType: 'text/plain' },
                 { responseType: 'text' }
               );
               rawText = String(docExport.data || '');
-            } else {
+            }
+            // 3. Raw Markdown / Plaintext
+            else {
               const fileRes = await drive.files.get(
                 { fileId: file.id, alt: 'media' },
                 { responseType: 'text' }
@@ -443,9 +489,9 @@ export async function syncContentFromDrive(): Promise<SyncResult> {
                   .replace(/\[cite:[^\]]+\]/gi, '')
                   .trim();
               } else {
-                // If Google doc text starts with title line
+                // If text starts with title line
                 const firstLine = body.split('\n')[0].trim();
-                if (firstLine.length > 5 && firstLine.length < 100) {
+                if (firstLine.length > 5 && firstLine.length < 120) {
                   title = firstLine
                     .replace(/[*_~`#]/g, '')
                     .replace(/\[cite:[^\]]+\]/gi, '')
