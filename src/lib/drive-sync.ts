@@ -459,7 +459,7 @@ export async function syncContentFromDrive(): Promise<SyncResult> {
             console.log(`[Blog-Agent] Fetching latest content for "${filename}" (${file.id})...`);
             let rawText = '';
 
-            // 1. Microsoft Word (.docx) support via mammoth
+            // 1. Microsoft Word (.docx) support via mammoth with embedded image preservation
             if (
               mimeType.includes('wordprocessingml') ||
               filename.toLowerCase().endsWith('.docx')
@@ -469,8 +469,34 @@ export async function syncContentFromDrive(): Promise<SyncResult> {
                 { responseType: 'arraybuffer' }
               );
               const buffer = Buffer.from(fileRes.data as ArrayBuffer);
-              const mammothResult = await mammoth.extractRawText({ buffer });
-              rawText = mammothResult.value || '';
+              const imageOptions = {
+                convertImage: mammoth.images.imgElement(function (image) {
+                  return image.read('base64').then(function (imageBuffer) {
+                    return {
+                      src: 'data:' + image.contentType + ';base64,' + imageBuffer,
+                    };
+                  });
+                }),
+              };
+              const htmlResult = await mammoth.convertToHtml({ buffer }, imageOptions);
+              let formattedText = htmlResult.value || '';
+
+              // Convert HTML tags to clean, rich Markdown
+              formattedText = formattedText
+                .replace(/<img[^>]+src="([^"]+)"[^>]*>/gi, '\n\n![Figure]($1)\n\n')
+                .replace(/<p>(.*?)<\/p>/gi, '$1\n\n')
+                .replace(/<(?:strong|b)>(.*?)<\/(?:strong|b)>/gi, '**$1**')
+                .replace(/<(?:em|i)>(.*?)<\/(?:em|i)>/gi, '*$1*')
+                .replace(/<h1>(.*?)<\/h1>/gi, '\n# $1\n\n')
+                .replace(/<h2>(.*?)<\/h2>/gi, '\n## $1\n\n')
+                .replace(/<h3>(.*?)<\/h3>/gi, '\n### $1\n\n')
+                .replace(/<li>(.*?)<\/li>/gi, '* $1\n')
+                .replace(/<\/?(?:ul|ol)>/gi, '\n')
+                .replace(/<br\s*\/?>/gi, '\n')
+                .replace(/<[^>]+>/g, '')
+                .replace(/\n{3,}/g, '\n\n');
+
+              rawText = formattedText;
             }
             // 2. Google Docs export
             else if (
@@ -513,8 +539,9 @@ export async function syncContentFromDrive(): Promise<SyncResult> {
                 }
               }
 
-              // Calculate read time
-              const wordCount = body.split(/\s+/).filter(Boolean).length;
+              // Calculate read time excluding image data URLs
+              const textForCounting = body.replace(/!\[.*?\]\(data:image\/[^;]+;base64,[^\)]+\)/g, '');
+              const wordCount = textForCounting.split(/\s+/).filter(Boolean).length;
               const readTime = `${Math.max(1, Math.ceil(wordCount / 200))} min read`;
               extraMetadata.readTime = readTime;
               extraMetadata.wordCount = wordCount;
