@@ -16,6 +16,7 @@ export function MarkdownViewer({ content, className = '' }: MarkdownViewerProps)
     >
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
+        urlTransform={(url) => url}
         components={{
           h1: ({ node, ...props }) => (
             <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground mt-8 mb-4" {...props} />
@@ -42,6 +43,25 @@ export function MarkdownViewer({ content, className = '' }: MarkdownViewerProps)
               {...props}
             />
           ),
+          img: ({ node, src, alt, ...props }: any) => {
+            if (!src) return null;
+            return (
+              <span className="my-8 block overflow-hidden rounded-2xl border border-border bg-background-soft shadow-sm">
+                <img
+                  src={src}
+                  alt={alt || 'Figure'}
+                  loading="lazy"
+                  className="w-full h-auto object-contain max-h-[750px] rounded-2xl mx-auto block"
+                  {...props}
+                />
+                {alt && alt !== 'Figure' && (
+                  <span className="block text-center text-xs text-secondary py-2 border-t border-border/50 bg-background-soft/80">
+                    {alt}
+                  </span>
+                )}
+              </span>
+            );
+          },
           code: ({ node, inline, className, children, ...props }: any) => {
             if (inline) {
               return (
