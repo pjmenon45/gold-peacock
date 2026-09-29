@@ -36,6 +36,7 @@ const TOPIC_RULES = [
     topic: 'telecom_5g',
     keywords: [
       '5g',
+      '6g',
       'telecom',
       'cellular',
       'wireless',
@@ -50,8 +51,10 @@ const TOPIC_RULES = [
       'pipe vs platform',
       'slice',
       'slicing',
+      'enterprise software',
+      'enterprise',
     ],
-    tags: ['5G', 'Telecommunications', 'Wireless Infrastructure', 'Monetization'],
+    tags: ['5G', 'Telecommunications', '6G', 'Enterprise Software', 'AI'],
     image:
       'https://images.unsplash.com/photo-1544197150-b99a580bb7a8?auto=format&fit=crop&w=1200&q=80',
   },
@@ -205,6 +208,17 @@ function analyzeArticleContent(
       explicitTags = tagsList[1]
         .split('\n')
         .map((l) => l.replace(/^\s*-\s*/, '').trim())
+        .filter(Boolean);
+    }
+  }
+
+  // 1b. Check for inline text tags like "Tags: 5G, Telecommunications, 6G, AI" or "Keywords: ..."
+  if (!explicitTags) {
+    const inlineTagsMatch = body.match(/^(?:Tags|Keywords|Categories):\s*(.+)$/im);
+    if (inlineTagsMatch && inlineTagsMatch[1]) {
+      explicitTags = inlineTagsMatch[1]
+        .split(/[,;|]/)
+        .map((s) => s.replace(/[#*`_]/g, '').trim())
         .filter(Boolean);
     }
   }
