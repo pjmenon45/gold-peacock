@@ -1,5 +1,6 @@
 services:
   app:
+    image: gold-peacock-app:latest
     build:
       context: .
       dockerfile: Dockerfile
@@ -23,9 +24,7 @@ services:
         condition: service_healthy
 
   sync-watcher:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    image: gold-peacock-app:latest
     restart: always
     command: ["node", "scripts/sync-drive.js", "--watch"]
     env_file:
